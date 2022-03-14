@@ -1,0 +1,195 @@
+version: '2'
+
+services:
+  o1agent:
+    image: ${REGISTRY_URL}/netconf-server:${NETCONF_SERVER_VERSION}
+    privileged: false
+    cap_add:
+    - SYS_ADMIN
+    - IPC_LOCK
+    - SYS_NICE
+    tty: true
+    hostname: o1agent
+    ports:
+    - 30830:830
+    - 6513:6513
+    devices:
+    - /dev/ipmi0:/dev/ipmi0
+    volumes:
+    - shm_vol:/dev/shm:z
+    - sysrepo_vol:/etc/sysrepo:z
+    - /dev/mapper:/dev/mapper
+    - /opt/pega:/opt/pega
+
+  flexran:
+    env_file:
+    - ./profile/active/docker-flexran5g.env
+    image: ${REGISTRY_URL}/flexran5g:${FLEXRAN_VERSION}
+    tty: true
+    privileged: false
+    cap_add:
+    - SYS_ADMIN
+    - IPC_LOCK
+    - SYS_NICE
+    devices:
+    - /dev/vfio:/dev/vfio
+    volumes:
+    - /dev/hugepages:/dev/hugepages
+    - /var/run/dpdk:/var/run/dpdk
+    - ./tests:/home/pegauser/flexran/tests
+    # mount l1_env_0 is applicable for debugging purpose
+    # mount xrancfg_sub6.xml due to different RU settings
+    #- ./profile/active/l1_env/flexran5g.env:/home/pegauser/starter/flexran/env
+    - ./profile/active/l1_env/xrancfg_sub6.xml:/home/pegauser/starter/flexran/configs/xrancfg_sub6.xml
+    #- ./profile/active/l1_env/phycfg_xran.xml:/home/pegauser/starter/flexran/configs/phycfg_xran.xml
+    #- ./profile/active/l1_env/config:/home/pegauser/starter/flexran/config
+    - ./logs/flexran:/home/pegauser/logs
+    - /etc/localtime:/etc/localtime
+    #- ./libwls.so:/home/pegauser/flexran/wls_mod/libwls.so
+    working_dir: /home/pegauser
+
+  gnb_cu:
+    env_file:
+    - ./profile/active/docker-gnb.env
+    - ./profile/active/docker-gnb-cu-0060.env
+    image: ${REGISTRY_URL}/gnb:${GNB_CU_VERSION}
+    privileged: false
+    cap_add:
+    - SYS_ADMIN
+    - IPC_LOCK
+    - SYS_NICE
+    tty: true
+    #ipc: service:e2agent
+    hostname: gnb-cu
+    network_mode: "host"
+    working_dir: /home/pegauser/synergy
+    devices:
+    - /dev/vfio:/dev/vfio
+    volumes:
+    - /dev/hugepages:/dev/hugepages
+    #- ./profile/active/oam_config/oam_sysrepo_cu.xml:/tmp/config/config.xml
+    #- ./hendro/oam_config/oam_sysrepo_cu.xml:/tmp/config/config.xml
+    # Use cu_template to take place of oam_config
+    #- ./profile/active/cu_template/oam_template_cu.xml:/home/pegauser/synergy/config/cu_template/oam_template_cu.xml
+    # Default sysconfig in build/gnb/config/cu_config
+    #- ./profile/active/cu_config/:/home/pegauser/synergy/config/cu_config/
+    #- ./profile/active/cu_cputable_1:/home/pegauser/synergy/config/cu_cputable_1
+    # For DPDK sys_config.txt and default cpu_table 3 when DPDK is enabled
+    #- ./profile/active/cu_config_dpdk:/home/pegauser/synergy/config/cu_config_dpdk
+    #- ./profile/active/cu_cputable_3:/home/pegauser/synergy/config/cu_cputable_3
+    # Disable shm_vol and sysrepo_vol if using OAM_CONFIG_MODE is k8s
+    #- shm_vol:/dev/shm:z
+    #- sysrepo_vol:/etc/sysrepo:z
+    - ./logs/gnb_cu:/home/pegauser/logs
+    - /etc/localtime:/etc/localtime
+    - ./smo/pm_log:/opt/pm_log:z
+    - /dev/mapper:/dev/mapper
+    - /opt/pega:/opt/pega
+    #- ./cu_bin_inactive:/home/pegauser/synergy/cu_bin/bin
+    #- ./cu_bin_reest_flag:/home/pegauser/synergy/cu_bin/bin
+    #- ./cu_bin_drb_ia:/home/pegauser/synergy/cu_bin/bin
+    #- ./cu_bin_dpdk:/home/pegauser/synergy/cu_bin_dpdk/bin
+    #command: cu
+    command: cu --delay=1
+
+  gnb_du:
+    env_file:
+    - ./profile/active/docker-gnb.env
+    - ./profile/active/docker-gnb-du-0060.env
+    image: ${REGISTRY_URL}/gnb:${GNB_DU_VERSION}
+    privileged: false
+    cap_add:
+    - SYS_ADMIN
+    - IPC_LOCK
+    - SYS_NICE
+    tty: true
+    #ipc: service:e2agent
+    network_mode: "host"
+    working_dir: /home/pegauser/synergy
+    hostname: gnb-du
+    volumes:
+    - /dev/hugepages:/dev/hugepages
+    - /var/run/dpdk:/var/run/dpdk
+    - ./file/oam_config/oam_sysrepo_du.xml:/tmp/config/config.xml
+    #- ./du_bin/paul_bin/oam_sysrepo_du.xml:/tmp/config/config.xml
+    # Use cu_template to take place of oam_config
+    #- ./profile/active/du_template:/home/pegauser/synergy/config/du_template
+    # Default sysconfig in build/gnb/config/du_config
+    #- ./profile/active/du_config:/tmp/sysconfig/
+    - ./profile/active/du_cputable_1:/home/pegauser/synergy/config/du_cputable_1
+    # Disable shm_vol and sysrepo_vol if using OAM_CONFIG_MODE is k8s
+    #- shm_vol:/dev/shm:z
+    #- sysrepo_vol:/etc/sysrepo:z
+    - /etc/localtime:/etc/localtime
+    - ./logs/gnb_du:/home/pegauser/logs
+    - ./smo/pm_log:/opt/pm_log:z
+    - /dev/mapper:/dev/mapper
+    - /opt/pega:/opt/pega
+    #- ./du_bin:/home/pegauser/synergy/du_bin_intel/bin
+    #- ./du_bin/UEmod:/home/pegauser/synergy/du_bin_intel/bin
+    - ./du_bin/frank_bin:/home/pegauser/synergy/du_bin_intel/bin
+    #- ./du_bin/paul_bin/liboam/oam_du/cm/yang:/home/pegauser/synergy/du_bin_intel/liboam/oam_du/cm/yang
+    #command: du --delay=3
+    command: du --delay=10
+
+  e2agent:
+    image: ${REGISTRY_URL}/e2agent:${E2AGENT_VERSION}
+    privileged: false
+    tty: true
+    #ipc: shareable
+    hostname: e2agent
+    volumes:
+    - ./e2agent_config/e2agent.conf:/opt/e2agent/config/e2agent.conf
+    command: ./e2agent -ct 60
+
+  mplane:
+    image: ${REGISTRY_URL}/ru_agent:${RU_AGENT_VERSION}
+    privileged: false
+    tty: true
+    ipc: "host"
+    network_mode: "host"
+    volumes:
+    - ./profile/active/ru_config/mplane_iot_test.xml:/home/pegauser/netconf/mplane_iot_test.xml
+    - ./profile/active/ru_config/out:/home/pegauser/netconf/out
+    #command: ./mplane-iot.sh
+  stability_agent:
+    image: ${REGISTRY_SYSTEM_STABILITY_URL}/stability_agent:$STABILITY_AGENT_VERSION
+    tty: true
+    stdin_open: true
+    volumes:
+    - /dev:/dev
+    - /sys:/sys
+    - /etc/localtime:/etc/localtime
+    working_dir: /home/pegauser
+    network_mode: "host"
+    pid: "host"
+    user: root
+    depends_on:
+      - filebeat
+    command:
+        sh
+  filebeat:
+    container_name: filebeat
+    hostname: filebeat
+    image: docker.elastic.co/beats/filebeat-oss:${ELASTIC_VERSION}
+    user: root
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      #Below Comment used for Asrcok Env(EX: Keysight/VIAVI Asrock)
+      - /home/docker/containers:/var/lib/docker/containers:ro
+      #Below comment is used for WindRiver Env.
+      #/var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: filebeat -e
+    restart: on-failure
+       
+volumes:
+  shm_vol:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  sysrepo_vol:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+
