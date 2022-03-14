@@ -116,7 +116,7 @@ services:
     #- ./profile/active/du_template:/home/pegauser/synergy/config/du_template
     # Default sysconfig in build/gnb/config/du_config
     #- ./profile/active/du_config:/tmp/sysconfig/
-    - ./profile/active/du_cputable_1:/home/pegauser/synergy/config/du_cputable_1
+    #- ./profile/active/du_cputable_1:/home/pegauser/synergy/config/du_cputable_1
     # Disable shm_vol and sysrepo_vol if using OAM_CONFIG_MODE is k8s
     #- shm_vol:/dev/shm:z
     #- sysrepo_vol:/etc/sysrepo:z

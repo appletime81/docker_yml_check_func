@@ -1,0 +1,143 @@
+services:
+  e2agent:
+    command: ./e2agent -ct 60
+    hostname: e2agent
+    image: ${REGISTRY_URL}/e2agent:${E2AGENT_VERSION}
+    privileged: false
+    tty: true
+    volumes:
+    - ./e2agent_config/e2agent.conf:/opt/e2agent/config/e2agent.conf
+  filebeat:
+    command: filebeat -e
+    container_name: filebeat
+    hostname: filebeat
+    image: docker.elastic.co/beats/filebeat-oss:${ELASTIC_VERSION}
+    restart: on-failure
+    user: root
+    volumes:
+    - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    - /home/docker/containers:/var/lib/docker/containers:ro
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  flexran:
+    cap_add:
+    - SYS_ADMIN
+    - IPC_LOCK
+    - SYS_NICE
+    devices:
+    - /dev/vfio:/dev/vfio
+    env_file:
+    - ./profile/active/docker-flexran5g.env
+    image: ${REGISTRY_URL}/flexran5g:${FLEXRAN_VERSION}
+    privileged: false
+    tty: true
+    volumes:
+    - /dev/hugepages:/dev/hugepages
+    - /var/run/dpdk:/var/run/dpdk
+    - ./tests:/home/pegauser/flexran/tests
+    - ./profile/active/l1_env/xrancfg_sub6.xml:/home/pegauser/starter/flexran/configs/xrancfg_sub6.xml
+    - ./logs/flexran:/home/pegauser/logs
+    - /etc/localtime:/etc/localtime
+    working_dir: /home/pegauser
+  gnb_cu:
+    cap_add:
+    - SYS_ADMIN
+    - IPC_LOCK
+    - SYS_NICE
+    command: cu --delay=1
+    devices:
+    - /dev/vfio:/dev/vfio
+    env_file:
+    - ./profile/active/docker-gnb.env
+    - ./profile/active/docker-gnb-cu-0060.env
+    hostname: gnb-cu
+    image: ${REGISTRY_URL}/gnb:${GNB_CU_VERSION}
+    network_mode: host
+    privileged: false
+    tty: true
+    volumes:
+    - /dev/hugepages:/dev/hugepages
+    - ./logs/gnb_cu:/home/pegauser/logs
+    - /etc/localtime:/etc/localtime
+    - ./smo/pm_log:/opt/pm_log:z
+    - /dev/mapper:/dev/mapper
+    - /opt/pega:/opt/pega
+    working_dir: /home/pegauser/synergy
+  gnb_du:
+    cap_add:
+    - SYS_ADMIN
+    - IPC_LOCK
+    - SYS_NICE
+    command: du --delay=10
+    env_file:
+    - ./profile/active/docker-gnb.env
+    - ./profile/active/docker-gnb-du-0060.env
+    hostname: gnb-du
+    image: ${REGISTRY_URL}/gnb:${GNB_DU_VERSION}
+    network_mode: host
+    privileged: false
+    tty: true
+    volumes:
+    - /dev/hugepages:/dev/hugepages
+    - /var/run/dpdk:/var/run/dpdk
+    - ./file/oam_config/oam_sysrepo_du.xml:/tmp/config/config.xml
+    - /etc/localtime:/etc/localtime
+    - ./logs/gnb_du:/home/pegauser/logs
+    - ./smo/pm_log:/opt/pm_log:z
+    - /dev/mapper:/dev/mapper
+    - /opt/pega:/opt/pega
+    - ./du_bin/frank_bin:/home/pegauser/synergy/du_bin_intel/bin
+    - ./profile/active/du_cputable_1:/home/pegauser/synergy/config/du_cputable_1
+    working_dir: /home/pegauser/synergy
+  mplane:
+    image: ${REGISTRY_URL}/ru_agent:${RU_AGENT_VERSION}
+    ipc: host
+    network_mode: host
+    privileged: false
+    tty: true
+    volumes:
+    - ./profile/active/ru_config/mplane_iot_test.xml:/home/pegauser/netconf/mplane_iot_test.xml
+    - ./profile/active/ru_config/out:/home/pegauser/netconf/out
+  o1agent:
+    cap_add:
+    - SYS_ADMIN
+    - IPC_LOCK
+    - SYS_NICE
+    devices:
+    - /dev/ipmi0:/dev/ipmi0
+    hostname: o1agent
+    image: ${REGISTRY_URL}/netconf-server:${NETCONF_SERVER_VERSION}
+    ports:
+    - 30830:830
+    - 6513:6513
+    privileged: false
+    tty: true
+    volumes:
+    - shm_vol:/dev/shm:z
+    - sysrepo_vol:/etc/sysrepo:z
+    - /dev/mapper:/dev/mapper
+    - /opt/pega:/opt/pega
+  stability_agent:
+    command: sh
+    depends_on:
+    - filebeat
+    image: ${REGISTRY_SYSTEM_STABILITY_URL}/stability_agent:$STABILITY_AGENT_VERSION
+    network_mode: host
+    pid: host
+    stdin_open: true
+    tty: true
+    user: root
+    volumes:
+    - /dev:/dev
+    - /sys:/sys
+    - /etc/localtime:/etc/localtime
+    working_dir: /home/pegauser
+version: '2'
+volumes:
+  shm_vol:
+    driver_opts:
+      device: tmpfs
+      type: tmpfs
+  sysrepo_vol:
+    driver_opts:
+      device: tmpfs
+      type: tmpfs
